@@ -9,7 +9,7 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=settings.openai_api
 prompt = ChatPromptTemplate.from_template(
     """
 Ты будешь извлекать из сообщения пользователя желаемую ставку за рекламу на его ютуб канале (desired_rate)
-Ты будешь возвращать только желаемую ставку, если в сообщении её нет, возвращаешь None. В ответе только извлеченная ставка
+Ты будешь возвращать только желаемую ставку, если в сообщении её нет, возвращаешь "нет". В ответе только извлеченная ставка
 Примеры: 
 [Пример 1]
 Сообщение пользователя:Привет. Я хотел бы 1500 рублей в качестве оплаты. 
@@ -18,12 +18,13 @@ prompt = ChatPromptTemplate.from_template(
 Сообщение пользователя: 3900 
 Ответ от тебя: 3900
 
-Извлеки из этого сообщения "{message}"
+Извлеки из этого сообщения "{user_message}"
 
 Ответ: 
 """
     )
 
-extract_desired_rate = LLMChain(llm=llm, prompt=prompt)
+extract_desired_rate_chain = prompt | llm
 
-print(extract_desired_rate.invoke('adfafda'))
+def extract_desired_rate(state):
+    return extract_desired_rate_chain.invoke(state.model_dump()).content

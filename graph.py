@@ -1,31 +1,31 @@
-from langgraph.graph import StateGraph, END
+from langgraph.constants import END
+from langgraph.graph import StateGraph
+
+from nodes.finalize_node import finalize_node
+from nodes.negotiation_node import negotiate_node
+from nodes.start_node import start_node
+from nodes.desired_rate_node import desired_rate_node
 from state import NegotiationState
-from nodes import propose_offer, evaluate_response, finalize
 
 builder = StateGraph(NegotiationState)
 
-builder.set_entry_point("Propose")
-builder.add_node("Propose", propose_offer.propose_offer)
-builder.add_node("Evaluate", evaluate_response.evaluate_response)
-builder.add_node("Finalize", finalize.finalize)
+# Узлы
+builder.add_node("start", start_node)
+builder.add_node('desired_rate', desired_rate_node)
+builder.add_node("negotiation", negotiate_node)
+builder.add_node("finalize", finalize_node)
 
-builder.add_edge("Propose", "Evaluate")
-
-# Условные переходы должны возвращать строку
-def route_evaluate(state) -> str:
-    next_node = state.get("next_node", "Finalize")  # По умолчанию идем в Finalize
-    if next_node == "negotiate":
-        return "Propose"
-    return next_node  # "accept" или "reject" ведут в Finalize
-
-builder.add_conditional_edges("Evaluate", route_evaluate, {
-    "accept": "Finalize",
-    "reject": "Finalize",
-    "negotiate": "Propose",
-    "Propose": "Propose",
-    "Finalize": "Finalize"
-})
-
-builder.add_edge("Finalize", END)
+# Переходы
+builder.set_entry_point("start")
+# builder.add_edge('start', 'desired_rate')
+builder.add_conditional_edges(
+    "desired_rate",
+    lambda state: "negotiation" if state.decision == "negotiation" else "finalize"
+)
+builder.add_conditional_edges(
+    "negotiation",
+    lambda state: "finalize" if state.decision == "accept" else "negotiation"
+)
+builder.add_edge("finalize", END)
 
 graph = builder.compile()
