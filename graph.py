@@ -18,14 +18,14 @@ builder.add_node("finalize", finalize_node)
 # Переходы
 builder.set_entry_point("start")
 # builder.add_edge('start', 'desired_rate')
-builder.add_conditional_edges(
-    "desired_rate",
-    lambda state: "negotiation" if state.decision == "negotiation" else "finalize"
-)
-builder.add_conditional_edges(
-    "negotiation",
-    lambda state: "finalize" if state.decision == "accept" else "negotiation"
-)
+# builder.add_conditional_edges(
+#     "desired_rate",
+#     lambda state: "negotiation" if state.decision == "negotiation" else "finalize"
+# )
+# builder.add_conditional_edges(
+#     "negotiation",
+#     lambda state: "finalize" if state.decision == "accept" else "negotiation"
+# )
 builder.add_edge("finalize", END)
 
 graph = builder.compile()
