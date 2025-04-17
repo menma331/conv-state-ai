@@ -67,7 +67,7 @@ def start_node(state: NegotiationState):
         # Запрашиваем желаемую ставку
         state['bot_message'] = "Hey, please send your desired rate"
 
-        return {"next_node": "desired_rate", "state": state}
+        return state
 
     except Exception as e:
         state['bot_message'] = f"Error: {str(e)}. Please use format: 'CPM min_views-max_views'"
