@@ -1,6 +1,5 @@
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
-from langchain_core.runnables import RunnableSequence
 from langchain_openai import ChatOpenAI
 from core.settings import settings
 
@@ -21,26 +20,8 @@ prompt = ChatPromptTemplate.from_template(
     вписывать все данные. Обязательным является только то что мы предлагаем ({current_offer}), остальное зависит от логичности в сообщении.
     """
 )
-
-# prompt = ChatPromptTemplate.from_template(
-#     """
-#     Ты ведёшь переговоры с блогером от имени бренда.
-#     Условия:
-#     - CPM: {cpm}
-#     - Просмотры: от {min_views} до {max_views}
-#     - История сообщений:
-#     {history}
-#
-#     Сформулируй новое предложение, спрашивать у него ничего не надо. Ты только торгуешься. Будь деловым, но дружелюбным. Не нужно писать эмодзи
-#     по
-#     типу робота или
-#     пользователя от
-#     чьего имени ты
-#     переписываешься. Ты делаешь вид, будто ты настоящий человек, не выходи из роли ни в коем случае. Здороваться не надо.
-#     """
-#     )
 propose_chain = prompt | llm
 
-
-def get_propose(state):  # изменить на асинхронный варик
-    return propose_chain.invoke(state.model_dump()).content
+async def get_propose(state):
+    result = await propose_chain.ainvoke(state)
+    return result.content

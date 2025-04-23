@@ -48,6 +48,7 @@ prompt = ChatPromptTemplate.from_template(
 
 evaluate_chain = prompt | llm
 
-def get_decision(state): # изменить на асинхронный вариант окда
-    return evaluate_chain.invoke(state.model_dump()).content
-
+async def get_decision(state):
+    """Вытянуть решение из сообщения пользователя"""
+    result = await evaluate_chain.ainvoke(state)
+    return result.content

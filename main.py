@@ -1,5 +1,9 @@
 import asyncio
 import logging
+
+from langchain_core.messages import get_buffer_string
+from langchain_core.runnables import RunnableConfig
+
 from core.settings import settings
 
 from aiogram import Bot, Dispatcher, Router, F
@@ -10,11 +14,10 @@ from aiogram.types import Message
 from ai import run_graph
 from state import NegotiationState, user_states
 
-
-
 bot = Bot(token=settings.tg_bot_token)
 dp = Dispatcher()
 router = Router()
+
 
 @router.message(CommandStart())
 async def handle_start(message: Message):
@@ -31,12 +34,14 @@ async def handle_start(message: Message):
         finalize_message=None,
         offer_type='fixed',
         reason='',
+        requested_desired_rate=False
     )
     await message.answer("Введите CPM и диапазон просмотров (например: '10 5000-10000')")
 
 
 @router.message(F.content_type == ContentType.TEXT)
 async def handle_text(message: Message):
+    """Обработчик сообщений. Запускает граф и даёт ответы"""
     user_id = message.from_user.id
     user_state = user_states.get(user_id)
 
@@ -48,7 +53,7 @@ async def handle_text(message: Message):
     user_state['user_message'] = message.text
 
     try:
-        response, new_state = run_graph(user_state)
+        response, new_state = await run_graph(user_state)
 
         # Сохраняем новое состояние
         user_states[user_id] = new_state

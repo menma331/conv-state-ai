@@ -26,5 +26,6 @@ prompt = ChatPromptTemplate.from_template(
 
 extract_desired_rate_chain = prompt | llm
 
-def extract_desired_rate(state):
-    return extract_desired_rate_chain.invoke(state.model_dump()).content
+async def extract_desired_rate(state):
+    result = await extract_desired_rate_chain.ainvoke(state)
+    return result.content

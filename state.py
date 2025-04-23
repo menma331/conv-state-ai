@@ -28,5 +28,7 @@ class NegotiationState(TypedDict):
 
     reason: Optional[str]
 
+    requested_desired_rate: bool
+
 
 user_states: dict[int, NegotiationState] = {}
