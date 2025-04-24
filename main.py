@@ -1,13 +1,11 @@
 import asyncio
 import logging
-
-from langchain_core.messages import get_buffer_string
-from langchain_core.runnables import RunnableConfig
+import uuid
 
 from core.settings import settings
 
 from aiogram import Bot, Dispatcher, Router, F
-from aiogram.enums import ContentType
+from aiogram.enums import ContentType, ChatAction
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
@@ -18,6 +16,19 @@ bot = Bot(token=settings.tg_bot_token)
 dp = Dispatcher()
 router = Router()
 
+is_first = True
+users_threads = {}
+
+async def get_user_config(tg_id):
+    """Получение пользовательского потока"""
+    if tg_id not in users_threads:
+         users_threads[tg_id] = {
+            "configurable": {
+                "thread_id": uuid.uuid4(),
+            }
+        }
+
+    return users_threads[tg_id]
 
 @router.message(CommandStart())
 async def handle_start(message: Message):
@@ -44,6 +55,7 @@ async def handle_text(message: Message):
     """Обработчик сообщений. Запускает граф и даёт ответы"""
     user_id = message.from_user.id
     user_state = user_states.get(user_id)
+    user_config = await get_user_config(str(user_id))
 
     if not user_state:
         await message.answer("Сначала запустите /start")
@@ -52,22 +64,20 @@ async def handle_text(message: Message):
     # Обновляем состояние
     user_state['user_message'] = message.text
 
-    try:
-        response, new_state = await run_graph(user_state)
+    await message.bot.send_chat_action(message.chat.id, action=ChatAction.TYPING)
 
-        # Сохраняем новое состояние
-        user_states[user_id] = new_state
+    global is_first
+    response, new_state = await run_graph(user_state, user_config, resume=not is_first)
+    is_first = False
+    # Сохраняем новое состояние
+    user_states[user_id] = new_state
 
-        # Отправляем ответ
-        await message.answer(response)
+    # Отправляем ответ
+    user_state['history'].append('Bot: ' + response)
+    await message.answer(response)
 
-        # Очищаем состояние при завершении
-        if new_state['decision'] in {"accept", "reject"}:
-            del user_states[user_id]
-
-    except Exception as e:
-        await message.answer("⚠️ Произошла ошибка. Попробуйте позже.")
-        logging.error(f"Error: {str(e)}")
+    # Очищаем состояние при завершении
+    if new_state['decision'] in {"accept", "reject"}:
         del user_states[user_id]
 
 
