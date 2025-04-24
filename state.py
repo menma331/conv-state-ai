@@ -1,15 +1,19 @@
 from enum import Enum
 from typing import Optional, TypedDict
 
+
 class OfferType(Enum):
     fixed = "Фиксированная"
     gap = 'С гэпом'
+
 
 class Decision(Enum):
     accept = 'accept'
     reject = 'reject'
 
+
 class NegotiationState(TypedDict):
+    """Состояние узлов."""
     cpm: float
     min_views: int
     max_views: int
