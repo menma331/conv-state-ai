@@ -1,77 +1,8 @@
-from enum import Enum
-# from chains.evaluate import get_decision
-# from chains.propose import get_propose
-# from state import NegotiationState
-#
-
-# def calculate_increases(base_offer, step):
-#     if step == 1:
-#         return base_offer * 1.20  # +20%
-#     elif step == 2:
-#         return base_offer * 1.30  # Итого +30% от исходной
-#     return base_offer
-#
-# def negotiate_node(state: NegotiationState) -> dict:
-#     """Один шаг переговоров."""
-#     # if state.propose_count >= 3:
-#     #     state.decision = Decision.reject.value
-#     #     state.reason = "Долго торгуется."
-#     #     return {"next_node": "finalize", "state": state}
-#     #
-#     # # Расчёт нового предложения
-#     # state.current_offer = calculate_increases(state.cpm, state.propose_count)
-#     #
-#     # user_message = state.user_message # Добавить получение сообщения из чата
-#     # state.history.append(f"👨: {user_message}")
-#     #
-#     # state.decision = get_decision(state) # получаем решение пользователя
-#     #
-#     # if state.decision == Decision.accept.value or state.decision == Decision.reject: # проверяем, согласен ли он
-#     #     if state.decision == Decision.reject:
-#     #         state.reason = "Не смогли сторговаться"
-#     #     return {"next_node": "finalize", "state": state}
-#     #
-#     # propose_text = get_propose(state)
-#     #
-#     # # Обновляем историю
-#     # state.bot_message = propose_text
-#     # state.history.append(f"🤖: {propose_text}")
-#     #
-#     # # Проверяем решение пользователя
-#     # state.decision = get_decision(state)
-#     # state.propose_count += 1
-#     #
-#     # return {"next_node": "negotiation", "state": state}  # Продолжаем торги
-#
-#     if state.propose_count >= 3:
-#         state.decision = Decision.reject.value
-#         state.reason = "Долго торгуется."
-#         return {"next_node": "finalize", "state": state}
-#
-#     if not state.awaiting_user_response:
-#         # Этап 1: Бот отправляет предложение
-#         state.current_offer = calculate_increases(state.cpm, state.propose_count)
-#         propose_text = get_propose(state)
-#         state.history.append(f"🤖: {propose_text}")
-#         state.awaiting_user_response = True  # <--- Ключевой флаг
-#         state.bot_message = propose_text
-#         state.propose_count += 1
-#         return {"next_node": "negotiation", "state": state}
-#
-#     else:
-#         # Этап 2: Обработка ответа пользователя
-#         state.history.append(f"👤: {state.user_message}")
-#         state.decision = get_decision(state)
-#         state.awaiting_user_response = False  # <--- Сбрасываем флаг
-#
-#         if state.decision in {Decision.accept.value, Decision.reject.value}:
-#             return {"next_node": "finalize", "state": state}
-#
-#         return {"next_node": "negotiation", "state": state}
+from langgraph.types import Command
 
 from chains.evaluate import get_decision
 from chains.propose import get_propose
-from state import NegotiationState, Decision
+from state import NegotiationState, Decision, OfferType
 
 
 def calculate_increases(base_offer, step):
@@ -82,29 +13,42 @@ def calculate_increases(base_offer, step):
     return base_offer
 
 
-def negotiate_node(state: NegotiationState) -> dict:
+async def negotiate_node(state: NegotiationState):
+    """Узел переговоров. В зависимости от типа офера мы идем на переговоры."""
     # Завершение при превышении попыток
     if state['propose_count'] >= 3:
         state['decision'] = Decision.reject.value
         state['reason'] = "Превышено количество попыток"
-        return {"next_node": "finalize", "state": state}
+        return Command(goto='finalize', update=state)
 
-    if not state['awaiting_user_response']:
-        # Этап 1: Бот генерирует предложение
-        state['current_offer'] = calculate_increases(state['cpm'], state['propose_count'])
-        state['bot_message'] = get_propose(state)
-        state['history'].append(f"🤖: {state['bot_message']}")
-        state['awaiting_user_response'] = True
-        state['propose_count'] += 1
-        return {"next_node": "negotiation", "state": state}
+    state['propose_count'] += 1
 
-    else:
-        # Этап 2: Обработка ответа пользователя
-        state['history'].append(f"👤: {state['user_message']}")
-        state['decision'] = get_decision(state).value
-        state['awaiting_user_response'] = False
+    neg_decision = await get_decision(state)
+    state['decision'] = neg_decision
 
-        if state['decision'] != "negotiation":
-            return {"next_node": "finalize", "state": state}
+    if state['offer_type'] == OfferType.gap.value:
+        if neg_decision == 'reject':
+            state['reason'] = 'Пользователь отказывается от нашего предложения'
+            return Command(goto='finalize', update=state)
+        if neg_decision == 'accept':
+            return Command(goto='finalize', update=state)
+        if neg_decision == 'negotiate':
+            state['current_offer'] = state['current_offer'] * 1.3
+            return Command(goto='user_input', update=state)
 
-        return {"next_node": "negotiation", "state": state}
+    state['user_message'] = ''
+    if neg_decision == 'negotiate':
+        # если пользователь в переговорах, увеличиваем предложение и отправляем обратно в узел переговоров
+        state['current_offer'] = calculate_increases(state['current_offer'], state['propose_count'])
+        bot_propose = await get_propose(state)
+        state['bot_message'] = bot_propose
+        state['history'].append(f"Bot: {state['bot_message']}")
+        return Command(goto='user_input', update=state)
+
+    if neg_decision == 'accept':
+        return Command(goto='finalize', update=state)
+    if neg_decision == 'reject':
+        state['reason'] = 'Пользователь не согласен с условиями. Отказался явно'
+        return Command(goto='finalize', update=state)
+
+    return Command(goto='user_input', update=state)
