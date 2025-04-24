@@ -1,9 +1,12 @@
 from state import NegotiationState
 
 async def start_node(state: NegotiationState):
-    """Стартовая нода. Парсит cpm и просмотры"""
+    """Стартовая нода. Парсит ставку и просмотры и далее определяем формат работы:
+        - С гэпом
+        - Фиксированная"""
     try:
         # Парсим CPM и просмотры
+        state['history'].append(state['user_message'])
         parts = state['user_message'].split()
         state['cpm'] = float(parts[0])
         views_part = parts[1]
@@ -14,7 +17,9 @@ async def start_node(state: NegotiationState):
             state['min_views'] = state['max_views'] = int(views_part)
 
         # Запрашиваем желаемую ставку
-        state['bot_message'] = "Please send your desired rate"
+        bot_message = "Введите желаемую ставку"
+        state['bot_message'] = bot_message
+        state['history'].append('Bot: ' +bot_message)
 
         return state
 
